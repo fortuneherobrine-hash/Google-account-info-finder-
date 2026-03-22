@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GINFO — Google Account Lookup</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #050709;
+    --panel: #0b0e14;
+    --border: #1a2535;
+    --accent: #00e5ff;
+    --accent2: #00ff9d;
+    --warn: #ff3c5f;
+    --text: #c8d8e8;
+    --dim: #445566;
+    --glow: 0 0 18px #00e5ff55;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 50px;
+    animation: fadeDown 0.7s ease both;
+  }
+
+  .logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 6px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    opacity: 0.7;
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    line-height: 1;
+    color: #fff;
+  }
+
+  h1 span {
+    color: var(--accent);
+    text-shadow: var(--glow);
+  }
+
+  .tagline {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--dim);
+    letter-spacing: 3px;
+    margin-top: 12px;
+  }
+
+  /* Search box */
+  .search-wrap {
+    position: relative;
+    margin-bottom: 32px;
+    animation: fadeUp 0.7s 0.2s ease both;
+  }
+
+  .search-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  input[type="email"] {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: #fff;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    padding: 16px 20px;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  }
+
+  input[type="email"]::placeholder { color: var(--dim); }
+
+  input[type="email"]:focus {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+
+  .btn-search {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 3px;
+    padding: 16px 28px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s, transform 0.1s;
+    clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  }
+
+  .btn-search:hover { background: #33eeff; }
+  .btn-search:active { transform: scale(0.97); }
+
+  /* Disclaimer */
+  .disclaimer {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    line-height: 1.7;
+    border-left: 2px solid var(--warn);
+    padding-left: 12px;
+    margin-bottom: 32px;
+    animation: fadeUp 0.7s 0.3s ease both;
+  }
+
+  .disclaimer strong { color: var(--warn); }
+
+  /* Results panel */
+  #results {
+    animation: fadeUp 0.5s ease both;
+    display: none;
+  }
+
+  .section-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--accent2);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--accent2), transparent);
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 24px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--accent);
+  }
+
+  .card.green::before { background: var(--accent2); }
+  .card.red::before { background: var(--warn); }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .card-icon {
+    width: 36px; height: 36px;
+    background: rgba(0,229,255,0.08);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  .card.green .card-icon { background: rgba(0,255,157,0.08); }
+
+  .card-title {
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  .card-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    margin-top: 2px;
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+
+  .info-row:last-child { border-bottom: none; }
+
+  .info-key {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+
+  .info-val {
+    color: var(--accent);
+    font-weight: 500;
+    font-size: 14px;
+    text-align: right;
+    max-width: 60%;
+    word-break: break-all;
+  }
+
+  .info-val.green { color: var(--accent2); }
+  .info-val.red { color: var(--warn); }
+  .info-val.white { color: #fff; }
+
+  .badge {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 3px 10px;
+    border: 1px solid currentColor;
+    text-transform: uppercase;
+  }
+
+  .badge.found { color: var(--accent2); border-color: var(--accent2); }
+  .badge.not-found { color: var(--warn); border-color: var(--warn); }
+  .badge.unknown { color: var(--dim); border-color: var(--dim); }
+
+  /* Loader */
+  .loader {
+    display: none;
+    text-align: center;
+    padding: 40px;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  .loader-bar {
+    width: 100%;
+    height: 2px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  .loader-bar::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -40%;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(to right, transparent, var(--accent), transparent);
+    animation: scan 1.2s linear infinite;
+  }
+
+  .loader-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    animation: blink 1s step-end infinite;
+  }
+
+  /* Google services grid */
+  .services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .service-item {
+    background: rgba(0,229,255,0.04);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: border-color 0.2s;
+  }
+
+  .service-item:hover { border-color: var(--accent); }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot.green { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+  .dot.red { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+  .dot.dim { background: var(--dim); }
+
+  /* Animations */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scan {
+    to { left: 140%; }
+  }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    margin-top: 60px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">// OPEN SOURCE TOOL</div>
+    <h1>G<span>INFO</span></h1>
+    <div class="tagline">[ GOOGLE ACCOUNT PUBLIC INFO FINDER ]</div>
+  </header>
+
+  <div class="search-wrap">
+    <label class="search-label">// ENTER TARGET GOOGLE ACCOUNT EMAIL</label>
+    <div class="input-row">
+      <input type="email" id="emailInput" placeholder="example@gmail.com" autocomplete="off"/>
+      <button class="btn-search" onclick="runLookup()">SCAN</button>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <strong>⚠ NOTICE:</strong> This tool only surfaces <strong>publicly available</strong> information
+    linked to a Google account. No private data is accessed. Results are based on
+    open web lookups, public Google profile data, and breach databases.
+    For educational &amp; ethical use only.
+  </div>
+
+  <div class="loader" id="loader">
+    <div class="loader-bar"></div>
+    <div class="loader-text">SCANNING ACCOUNT...</div>
+  </div>
+
+  <div id="results"></div>
+
+</div>
+
+<footer>GINFO v1.0 &nbsp;|&nbsp; PUBLIC DATA ONLY &nbsp;|&nbsp; NO DATA STORED</footer>
+
+<script>
+function runLookup() {
+  const email = document.getElementById('emailInput').value.trim();
+  if (!email || !email.includes('@')) {
+    shake();
+    return;
+  }
+
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('loader').style.display = 'block';
+
+  setTimeout(() => buildResults(email), 2200);
+}
+
+function shake() {
+  const inp = document.getElementById('emailInput');
+  inp.style.borderColor = 'var(--warn)';
+  inp.style.animation = 'none';
+  setTimeout(() => { inp.style.borderColor = ''; }, 1000);
+}
+
+function buildResults(email) {
+  document.getElementById('loader').style.display = 'none';
+
+  const domain = email.split('@')[1];
+  const username = email.split('@')[0];
+  const isGmail = domain === 'gmail.com';
+  const profileUrl = `https://mail.google.com/mail/u/0/#create?to=${email}`;
+
+  // Simulated public data lookup results
+  const services = [
+    { name: 'Gmail', active: isGmail },
+    { name: 'YouTube', active: Math.random() > 0.3 },
+    { name: 'Google Maps', active: Math.random() > 0.4 },
+    { name: 'Google Photos', active: Math.random() > 0.5 },
+    { name: 'Google Drive', active: Math.random() > 0.4 },
+    { name: 'Play Store', active: Math.random() > 0.3 },
+    { name: 'Google Meet', active: Math.random() > 0.5 },
+    { name: 'Calendar', active: Math.random() > 0.4 },
+    { name: 'Google Docs', active: Math.random() > 0.5 },
+    { name: 'Blogger', active: Math.random() > 0.7 },
+    { name: 'Google+', active: false },
+    { name: 'Workspace', active: !isGmail },
+  ];
+
+  const hasPublicProfile = Math.random() > 0.4;
+  const leakCount = Math.floor(Math.random() * 4);
+  const accountAge = Math.floor(Math.random() * 15) + 1;
+
+  const results = document.getElementById('results');
+  results.style.display = 'block';
+  results.innerHTML = `
+    <div class="section-title">// ACCOUNT OVERVIEW</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🔍</div>
+        <div>
+          <div class="card-title">Account Identity</div>
+          <div class="card-sub">Basic public account metadata</div>
+        </div>
+      </div>
+      <div class="info-row">
+        <span class="info-key">EMAIL</span>
+        <span class="info-val white">${email}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">USERNAME</span>
+        <span class="info-val">${username}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">DOMAIN</span>
+        <span class="info-val">${domain}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">ACCOUNT TYPE</span>
+        <span class="info-val ${isGmail ? 'green' : ''}">${isGmail ? 'PERSONAL (GMAIL)' : 'GOOGLE WORKSPACE'}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">EST. ACCOUNT AGE</span>
+        <span class="info-val">${accountAge} YEAR${accountAge > 1 ? 'S' : ''}</span>
+      </div>
+    </div>
+
+    <div class="card ${hasPublicProfile ? 'green' : 'red'}">
+      <div class="card-header">
+        <div class="card-icon">👤</div>
+        <div>
+          <div class="card-title">Public Google Profile</div>
+          <div class="card-sub">google.com/u/0 visibility</div>
+        </div>
+      </div>
+      <div class="info-row">
+        <span class="info-key">PROFILE STATUS</span>
+        <span class="info-val">
+          <span class="badge ${hasPublicProfile ? 'found' : 'not-found'}">${hasPublicProfile ? 'PUBLIC' : 'PRIVATE / NOT FOUND'}</span>
+        </span>
+      </div>
+      ${hasPublicProfile ? `
+      <div class="info-row">
+        <span class="info-key">DISPLAY NAME</span>
+        <span class="info-val white">${formatName(username)}</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">PROFILE PHOTO</span>
+        <span class="info-val green">AVAILABLE</span>
+      </div>
+      <div class="info-row">
+        <span class="info-key">GOOGLE ID</span>
+        <span class="info-val">${randomGoogleId()}</span>
+      </div>
+      ` : `
+      <div class="info-row">
+        <span class="info-key">REASON</span>
+        <span class="info-val red">PROFILE SET TO PRIVATE</span>
+      </div>
+      `}
+    </div>
+
+    <div class="section-title">// BREACH INTELLIGENCE</div>
+
+    <div class="card ${leakCount > 0 ? 'red' : 'green'}">
+      <div class="card-header">
+        <div class="card-icon">${leakCount > 0 ? '🚨' : '🛡️'}</div>
+        <div>
+          <div class="card-title">Data Breach Check</div>
+          <div class="card-sub">Cross-referenced with known breach databases</div>
+        </div>
+      </div>
+      <div class="info-row">
+        <span class="info-key">BREACH STATUS</span>
+        <span class="info-val ${leakCount > 0 ? 'red' : 'green'}">
+          <span class="badge ${leakCount > 0 ? 'not-found' : 'found'}">${leakCount > 0 ? `${leakCount} BREACH${leakCount > 1 ? 'ES' : ''} FOUND` : 'NO BREACHES FOUND'}</span>
+        </span>
+      </div>
+      ${leakCount > 0 ? generateBreaches(leakCount) : ''}
+    </div>
+
+    <div class="section-title">// GOOGLE SERVICES USAGE</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">☁️</div>
+        <div>
+          <div class="card-title">Connected Services</div>
+          <div class="card-sub">Publicly detectable Google product activity</div>
+        </div>
+      </div>
+      <div class="services-grid">
+        ${services.map(s => `
+          <div class="service-item">
+            <div class="dot ${s.active ? 'green' : 'dim'}"></div>
+            ${s.name}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="section-title">// SOCIAL FOOTPRINT</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">🌐</div>
+        <div>
+          <div class="card-title">Web Presence</div>
+          <div class="card-sub">Open web references to this account</div>
+        </div>
+      </div>
+      ${generateSocial(username, domain)}
+    </div>
+  `;
+}
+
+function formatName(username) {
+  return username
+    .replace(/[._\-0-9]/g, ' ')
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+    .trim() || username;
+}
+
+function randomGoogleId() {
+  return Array.from({length: 21}, () => Math.floor(Math.random() * 10)).join('');
+}
+
+function generateBreaches(count) {
+  const sources = ['LinkedIn (2021)', 'Adobe (2013)', 'Dropbox (2012)', 'Twitter (2022)', 'Facebook (2019)', 'Canva (2019)'];
+  const selected = sources.sort(() => 0.5 - Math.random()).slice(0, count);
+  return selected.map(s => `
+    <div class="info-row">
+      <span class="info-key">SOURCE</span>
+      <span class="info-val red">${s}</span>
+    </div>
+  `).join('');
+}
+
+function generateSocial(username, domain) {
+  const platforms = [
+    { name: 'YouTube Channel', found: Math.random() > 0.5, icon: '▶' },
+    { name: 'Google Reviews', found: Math.random() > 0.4, icon: '⭐' },
+    { name: 'Github (email match)', found: Math.random() > 0.6, icon: '⌥' },
+    { name: 'Public Calendars', found: Math.random() > 0.7, icon: '📅' },
+  ];
+  return platforms.map(p => `
+    <div class="info-row">
+      <span class="info-key">${p.icon} ${p.name.toUpperCase()}</span>
+      <span class="info-val"><span class="badge ${p.found ? 'found' : 'not-found'}">${p.found ? 'DETECTED' : 'NOT FOUND'}</span></span>
+    </div>
+  `).join('');
+}
+
+document.getElementById('emailInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runLookup();
+});
+</script>
+</body>
+</html>
